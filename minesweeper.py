@@ -21,6 +21,7 @@ numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3"
 root = tk.Tk()
 frame = tk.Frame(root)
 frame.pack()
+flag = tk.PhotoImage(file="flag.png")
 
 tiles = [[] for _ in range(sz)]
 
@@ -85,15 +86,21 @@ class Tile:
             self.clicked = True
             self.label.config(relief=clickedstyle, bg=clickedcolor)
             if self.isbomb:
-                self.text.set("b")
+                for r, c in map(lambda b: (b // sz, b % sz), bombs):
+                    tiles[r][c].text.set("b")
+                    tiles[r][c].label.config(bg="red")
             else:
                 self.text.set(" ")  
                 self.checkneighbors()
 
     def right_click(self, event=None):
+        print(self.label.winfo_height(), self.label.winfo_width(), event.y, event.x)
         if not self.clicked and self.inside(event.x, event.y):
             self.flagged = not self.flagged
-            self.text.set("f" if self.flagged else " ")
+            if self.flagged:
+                self.text.set("f")
+            else:
+                self.text.set(" ")
 
 
 # Create a random 1D set of bombs that maps to the 2D tile grid
