@@ -2,11 +2,20 @@ import argparse
 import random
 
 import tkinter as tk
+from itertools import product
 from collections import deque
 
 # Size and number of bombs, to be replaced with parseargs
 sz = 20 
-b = 20
+b = 50
+
+# Color and style config
+clickedstyle="sunken"
+clickedcolor="gray80"
+unclickedstyle="raised"
+unclickedcolor="gray65"
+font="consolas 10 bold"
+numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
 
 # Frame setup
 root = tk.Tk()
@@ -20,16 +29,17 @@ class Tile:
         self.row = row
         self.col = col
         self.isbomb = isbomb 
+        self.neighborbombs = -1
         self.flagged = False
         self.clicked = False
 
         self.text = tk.StringVar()
         self.text.set(" ")
 
-        self.label = tk.Label(frame, relief="groove", textvariable=self.text, width=2, height=1)
-        self.label.bind("<Button-1>", self.left_click)
-        self.label.bind("<Button-2>", self.right_click)
-        self.label.bind("<Button-3>", self.right_click)
+        self.label = tk.Label(frame, font=font, relief=unclickedstyle, bg=unclickedcolor, bd=1, textvariable=self.text, width=2, height=1)
+        self.label.bind("<ButtonRelease-1>", self.left_click)
+        self.label.bind("<ButtonRelease-2>", self.right_click)
+        self.label.bind("<ButtonRelease-3>", self.right_click)
 
     @staticmethod
     def inbounds(tile, i, j):
@@ -37,25 +47,43 @@ class Tile:
                 and tile.row + i < sz 
                 and tile.col + j >= 0 
                 and tile.col + j < sz)
-
+    
     def checkneighbors(self):
-        unclicked = deque([self])
-        while unclicked:
+        q = deque([self])
+        physicalclick = True
+        while q:
             bombcount = 0
-            cur = unclicked.pop()
-            for i in [-1, 0, 1]:
-                for j in [-1, 0, 1]:
-                    if self.inbounds(cur, i, j):
-                        t = tiles[cur.row + i][cur.col + j]
-                        if t.isbomb:
-                            bombcount += 1
+            unclicked = deque() 
+            cur = q.pop()
+            for i, j in product([-1, 0, 1], [-1, 0, 1]):
+                if self.inbounds(cur, i, j):
+                    t = tiles[cur.row + i][cur.col + j]
+                    if t.isbomb:
+                        bombcount += 1
+                    else:
+                        if not t.clicked and t.neighborbombs == -1:
+                            unclicked.append(t)
             if bombcount > 0:
-                cur.text.set(str(bombcount))
+                cur.neighborbombs = bombcount
+                cur.text.set(cur.neighborbombs)
+                cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighborbombs])
+                cur.clicked = True
+            else:
+                if not cur.flagged:
+                    q.extend(unclicked)
+                    cur.text.set(" ")
+                    cur.clicked = True
+                    cur.label.config(relief=clickedstyle, bg=clickedcolor)
+            physicalclick = False
+
+    def inside(self, x, y):
+        return x >= 0 and y >= 0 and x < self.label.winfo_width() and y < self.label.winfo_height()
 
     def left_click(self, event=None):
-        if not self.clicked and not self.flagged:
+        print(self.label.winfo_height(), self.label.winfo_width(), event.y, event.x)
+        if not self.clicked and not self.flagged and self.inside(event.x, event.y):
             self.clicked = True
-            self.label.config(relief="flat")
+            self.label.config(relief=clickedstyle, bg=clickedcolor)
             if self.isbomb:
                 self.text.set("b")
             else:
@@ -63,7 +91,7 @@ class Tile:
                 self.checkneighbors()
 
     def right_click(self, event=None):
-        if not self.clicked:
+        if not self.clicked and self.inside(event.x, event.y):
             self.flagged = not self.flagged
             self.text.set("f" if self.flagged else " ")
 
