@@ -22,7 +22,9 @@ numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3"
 # Frame setup
 root = tk.Tk()
 frame = tk.Frame(root)
-frame.pack()
+frame.pack(side="bottom")
+status = tk.Frame(root)
+status.pack(side="top")
 
 tiles = [[] for _ in range(sz)]
 
@@ -40,6 +42,7 @@ class Tile:
 
         self.label = tk.Label(frame, fg="red", font=font, relief=unclickedstyle, bg=unclickedcolor, bd=1, textvariable=self.text, width=2, height=1)
         self.label.bind("<ButtonRelease-1>", self.left_click)
+        self.label.bind("<Button-1>", self.anticipate)
         self.label.bind("<ButtonRelease-2>", self.right_click)
         self.label.bind("<ButtonRelease-3>", self.right_click)
 
@@ -81,19 +84,26 @@ class Tile:
     def inside(self, x, y):
         return x >= 0 and y >= 0 and x < self.label.winfo_width() and y < self.label.winfo_height()
 
+    def anticipate(self, event=None):
+        if not self.flagged and not self.clicked:
+            self.label.config(relief=clickedstyle)
+            avatar.config(image=anticipate)
+
     def left_click(self, event=None):
-        print(self.label.winfo_height(), self.label.winfo_width(), event.y, event.x)
-        if not self.clicked and not self.flagged and self.inside(event.x, event.y):
-            self.clicked = True
-            self.label.config(relief=clickedstyle, bg=clickedcolor)
-            if self.ismine:
-                for r, c in map(lambda b: (b // sz, b % sz), mines):
-                    tiles[r][c].label.configure(fg="black", bg="red")
-                    if not tiles[r][c].flagged:
-                        tiles[r][c].text.set("*")
-            else:
-                self.text.set(" ")  
-                self.checkneighbors()
+        if not self.flagged and not self.clicked:
+            avatar.config(image=fine)
+            self.label.config(relief=unclickedstyle)
+            if self.inside(event.x, event.y):
+                self.clicked = True
+                self.label.config(relief=clickedstyle, bg=clickedcolor)
+                if self.ismine:
+                    avatar.config(image=dead)
+                    for r, c in map(lambda b: (b // sz, b % sz), mines):
+                        tiles[r][c].label.configure(fg="black", bg="red")
+                        if not tiles[r][c].flagged:
+                            tiles[r][c].text.set("*")
+                else:
+                    self.checkneighbors()
 
     def right_click(self, event=None):
         print(self.label.winfo_height(), self.label.winfo_width(), event.y, event.x)
@@ -116,5 +126,16 @@ for row in range(sz):
         cur_tile = Tile(row, col, (row * sz + col) in mines)
         cur_tile.label.grid(row=row, column=col)
         tiles[row].append(cur_tile)
+
+fine = tk.PhotoImage(file="fine.gif")
+dead = tk.PhotoImage(file="dead.gif")
+anticipate = tk.PhotoImage(file="anticipate.gif")
+win = tk.PhotoImage(file="dead.gif")
+
+avatar = tk.Label(status, image=fine)
+avatar.pack()
+
+
+
 
 root.mainloop()
