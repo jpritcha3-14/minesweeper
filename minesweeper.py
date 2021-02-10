@@ -80,6 +80,7 @@ class Tile:
                 self.label.config(relief=clickedstyle, bg=clickedcolor)
                 if self.ismine():
                     avatar.config(image=dead)
+                    unbind_tiles()
                     for r, c in map(lambda b: (b // sz, b % sz), mines):
                         tiles[r][c].label.configure(fg="black", bg="red")
                         if not tiles[r][c].flagged:
@@ -94,7 +95,15 @@ class Tile:
                 self.text.set("!")
             else:
                 self.text.set(" ")
-                
+
+def unbind_tiles():
+    for row in range(sz):
+        for col in range(sz):
+            tiles[row][col].label.unbind("<ButtonRelease-1>")
+            tiles[row][col].label.unbind("<ButtonRelease-2>")
+            tiles[row][col].label.unbind("<ButtonRelease-3>")
+            tiles[row][col].label.unbind("<Button-1>")
+
 def restart_game(event=None):
     # Reset Avatar
     avatar.config(image=fine)
@@ -106,18 +115,21 @@ def restart_game(event=None):
     while len(mines) < b:
         mines.add(random.randint(0,sz**2-1))
 
-    print('here')
-
     # Reset all tiles 
     for row in range(sz):
         for col in range(sz):
-            tiles[row][col].text.set(" ")
-            tiles[row][col].label.config(fg="red", relief=unclickedstyle, bg=unclickedcolor)
-            tiles[row][col].row = row
-            tiles[row][col].col = col
-            tiles[row][col].neighbormines = -1
-            tiles[row][col].flagged = False
-            tiles[row][col].clicked = False
+            cur = tiles[row][col]
+            cur.text.set(" ")
+            cur.label.config(fg="red", relief=unclickedstyle, bg=unclickedcolor)
+            cur.row = row
+            cur.col = col
+            cur.neighbormines = -1
+            cur.flagged = False
+            cur.clicked = False
+            cur.label.bind("<ButtonRelease-1>", cur.left_click)
+            cur.label.bind("<Button-1>", cur.anticipate)
+            cur.label.bind("<ButtonRelease-2>", cur.right_click)
+            cur.label.bind("<ButtonRelease-3>", cur.right_click)
 
     root.mainloop()
     
@@ -132,8 +144,8 @@ unclickedstyle="raised"
 unclickedcolor="gray65"
 font="consolas 10 bold"
 numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
-# Frame setup
 
+# Frame setup
 root = tk.Tk()
 frame = tk.Frame(root)
 frame.pack(side="bottom")
