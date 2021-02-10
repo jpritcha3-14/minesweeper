@@ -1,11 +1,13 @@
 import argparse
 import random
+import copy
 
 import tkinter as tk
 from itertools import product
 from collections import deque
+from PIL import ImageTk, Image
 
-# Size and number of bombs, to be replaced with parseargs
+# Size and number of mines, to be replaced with parseargs
 sz = 20 
 b = 50
 
@@ -21,23 +23,22 @@ numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3"
 root = tk.Tk()
 frame = tk.Frame(root)
 frame.pack()
-flag = tk.PhotoImage(file="flag.png")
 
 tiles = [[] for _ in range(sz)]
 
 class Tile:
-    def __init__(self, row, col, isbomb):
+    def __init__(self, row, col, ismine):
         self.row = row
         self.col = col
-        self.isbomb = isbomb 
-        self.neighborbombs = -1
+        self.ismine = ismine 
+        self.neighbormines = -1
         self.flagged = False
         self.clicked = False
 
         self.text = tk.StringVar()
         self.text.set(" ")
 
-        self.label = tk.Label(frame, font=font, relief=unclickedstyle, bg=unclickedcolor, bd=1, textvariable=self.text, width=2, height=1)
+        self.label = tk.Label(frame, fg="red", font=font, relief=unclickedstyle, bg=unclickedcolor, bd=1, textvariable=self.text, width=2, height=1)
         self.label.bind("<ButtonRelease-1>", self.left_click)
         self.label.bind("<ButtonRelease-2>", self.right_click)
         self.label.bind("<ButtonRelease-3>", self.right_click)
@@ -53,21 +54,21 @@ class Tile:
         q = deque([self])
         physicalclick = True
         while q:
-            bombcount = 0
+            minecount = 0
             unclicked = deque() 
             cur = q.pop()
             for i, j in product([-1, 0, 1], [-1, 0, 1]):
                 if self.inbounds(cur, i, j):
                     t = tiles[cur.row + i][cur.col + j]
-                    if t.isbomb:
-                        bombcount += 1
+                    if t.ismine:
+                        minecount += 1
                     else:
-                        if not t.clicked and t.neighborbombs == -1:
+                        if not t.clicked and t.neighbormines == -1:
                             unclicked.append(t)
-            if bombcount > 0:
-                cur.neighborbombs = bombcount
-                cur.text.set(cur.neighborbombs)
-                cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighborbombs])
+            if minecount > 0:
+                cur.neighbormines = minecount
+                cur.text.set(cur.neighbormines)
+                cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighbormines])
                 cur.clicked = True
             else:
                 if not cur.flagged:
@@ -85,10 +86,11 @@ class Tile:
         if not self.clicked and not self.flagged and self.inside(event.x, event.y):
             self.clicked = True
             self.label.config(relief=clickedstyle, bg=clickedcolor)
-            if self.isbomb:
-                for r, c in map(lambda b: (b // sz, b % sz), bombs):
-                    tiles[r][c].text.set("b")
-                    tiles[r][c].label.config(bg="red")
+            if self.ismine:
+                for r, c in map(lambda b: (b // sz, b % sz), mines):
+                    tiles[r][c].label.configure(fg="black", bg="red")
+                    if not tiles[r][c].flagged:
+                        tiles[r][c].text.set("*")
             else:
                 self.text.set(" ")  
                 self.checkneighbors()
@@ -98,20 +100,20 @@ class Tile:
         if not self.clicked and self.inside(event.x, event.y):
             self.flagged = not self.flagged
             if self.flagged:
-                self.text.set("f")
+                self.text.set("!")
             else:
                 self.text.set(" ")
 
 
-# Create a random 1D set of bombs that maps to the 2D tile grid
-bombs = set()
-while len(bombs) < b:
-    bombs.add(random.randint(0,sz**2-1))
+# Create a random 1D set of mines that maps to the 2D tile grid
+mines = set()
+while len(mines) < b:
+    mines.add(random.randint(0,sz**2-1))
 
 # Create the tile grid
 for row in range(sz):
     for col in range(sz):
-        cur_tile = Tile(row, col, (row * sz + col) in bombs)
+        cur_tile = Tile(row, col, (row * sz + col) in mines)
         cur_tile.label.grid(row=row, column=col)
         tiles[row].append(cur_tile)
 
