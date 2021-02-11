@@ -1,5 +1,6 @@
 import argparse
 import random
+import time
 
 import tkinter as tk
 from itertools import product
@@ -143,6 +144,18 @@ def unbind_tiles():
             tiles[row][col].label.unbind("<ButtonRelease-3>")
             tiles[row][col].label.unbind("<Button-1>")
 
+
+
+def update_timer():
+    global start_time
+    cur_time = round(time.time() - start_time)
+    secs = cur_time % 60
+    mins = cur_time // 60
+    hrs = cur_time // 3600
+    fmtime = " {:02d}:{:02d}:{:02d} "
+    clock.config(text=fmtime.format(hrs, mins, secs))
+    root.after(1000, update_timer) 
+
 def shuffle_mines():
     # A random 1D set of mines maps to the 2D tile grid.
     # These are managed independently of individual tiles, 
@@ -154,11 +167,14 @@ def shuffle_mines():
 def restart_game(event=None):
     global first_click
     global tiles_left
+    global start_time
     # Reset Avatar
     avatar.config(image=fine)
 
     tiles_left = sz**2 - b
     first_click = True 
+    start_time = time.time() 
+    update_timer()
     shuffle_mines()
 
     # Reset tile config and binding 
@@ -189,6 +205,7 @@ font="consolas 10 bold"
 numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
 first_click = True
 tiles_left = sz**2 - b
+start_time = time.time()
 
 # Frame setup
 root = tk.Tk()
