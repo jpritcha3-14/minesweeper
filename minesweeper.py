@@ -1,6 +1,5 @@
 import argparse
 import random
-import copy
 
 import tkinter as tk
 from itertools import product
@@ -8,7 +7,6 @@ from collections import deque
 from PIL import ImageTk, Image
 
 class Tile:
-
     def __init__(self, row, col):
         self.row = row
         self.col = col
@@ -36,8 +34,8 @@ class Tile:
                 and tile.col + j < sz)
     
     def checkneighbors(self):
+        global first_click
         q = deque([self])
-        physicalclick = True
         while q:
             minecount = 0
             unclicked = deque() 
@@ -51,6 +49,10 @@ class Tile:
                         if not t.clicked and t.neighbormines == -1:
                             unclicked.append(t)
             if minecount > 0:
+                if first_click:
+                    shuffle_mines()
+                    q.append(cur)
+                    continue
                 cur.neighbormines = minecount
                 cur.text.set(cur.neighbormines)
                 cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighbormines])
@@ -61,7 +63,7 @@ class Tile:
                     cur.text.set(" ")
                     cur.clicked = True
                     cur.label.config(relief=clickedstyle, bg=clickedcolor)
-            physicalclick = False
+                    first_click = False
 
     def inside(self, x, y):
         return x >= 0 and y >= 0 and x < self.label.winfo_width() and y < self.label.winfo_height()
@@ -72,10 +74,14 @@ class Tile:
             avatar.config(image=anticipate)
 
     def left_click(self, event=None):
+        global first_click
         if not self.flagged and not self.clicked:
             avatar.config(image=fine)
             self.label.config(relief=unclickedstyle)
             if self.inside(event.x, event.y):
+                if first_click and self.ismine():
+                    while self.ismine():
+                        shuffle_mines()
                 self.clicked = True
                 self.label.config(relief=clickedstyle, bg=clickedcolor)
                 if self.ismine():
@@ -104,25 +110,28 @@ def unbind_tiles():
             tiles[row][col].label.unbind("<ButtonRelease-3>")
             tiles[row][col].label.unbind("<Button-1>")
 
-def restart_game(event=None):
-    # Reset Avatar
-    avatar.config(image=fine)
-
-    # Create a random 1D set of mines that maps to the 2D tile grid
-    # These are managed independently of individual tiles, with the
-    # self.ismine() function used for lookup
+def shuffle_mines():
+    # A random 1D set of mines maps to the 2D tile grid.
+    # These are managed independently of individual tiles, 
+    # with thes self.ismine() function used for lookup.
     mines.clear()
     while len(mines) < b:
         mines.add(random.randint(0,sz**2-1))
 
-    # Reset all tiles 
+def restart_game(event=None):
+    global first_click
+    # Reset Avatar
+    avatar.config(image=fine)
+
+    first_click = True 
+    shuffle_mines()
+
+    # Reset tile config and binding 
     for row in range(sz):
         for col in range(sz):
             cur = tiles[row][col]
             cur.text.set(" ")
             cur.label.config(fg="red", relief=unclickedstyle, bg=unclickedcolor)
-            cur.row = row
-            cur.col = col
             cur.neighbormines = -1
             cur.flagged = False
             cur.clicked = False
@@ -144,6 +153,7 @@ unclickedstyle="raised"
 unclickedcolor="gray65"
 font="consolas 10 bold"
 numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
+first_click = True
 
 # Frame setup
 root = tk.Tk()
@@ -162,11 +172,13 @@ for row in range(sz):
         cur_tile.label.grid(row=row, column=col)
         tiles[row].append(cur_tile)
 
+# Load images
 fine = tk.PhotoImage(file="fine.gif")
 dead = tk.PhotoImage(file="dead.gif")
 anticipate = tk.PhotoImage(file="anticipate.gif")
 win = tk.PhotoImage(file="dead.gif")
 
+# Bind avatar to restart
 avatar = tk.Label(status, image=fine)
 avatar.pack()
 avatar.bind('<Button-1>', restart_game)
