@@ -120,12 +120,20 @@ class Tile:
                     self.checkneighbors()
 
     def right_click(self, event=None):
-        if not self.clicked and self.inside(event.x, event.y):
-            self.flagged = not self.flagged
+        global first_click
+        if not self.clicked and self.inside(event.x, event.y) and not first_click:
             if self.flagged:
-                self.text.set("!")
+                if self.text.get() == "!":
+                    self.text.set("?")
+                    self.label.config(fg="black")
+                else:
+                    self.text.set(" ")
+                    self.flagged = False
             else:
-                self.text.set(" ")
+                self.text.set("!")
+                self.label.config(fg="red")
+                self.flagged = True
+
 
 def unbind_tiles():
     for row in range(sz):
@@ -185,10 +193,12 @@ tiles_left = sz**2 - b
 # Frame setup
 root = tk.Tk()
 root.title("Minesweeper")
+icon = tk.PhotoImage(file="bomb.png")
+root.iconphoto(False, icon)
 frame = tk.Frame(root)
 frame.pack(side="bottom")
-status = tk.Frame(root)
-status.pack(side="top")
+status = tk.Frame(root, bd = 4)
+status.pack(fill='x')
 
 tiles = [[] for _ in range(sz)]
 mines = set()
@@ -207,9 +217,14 @@ anticipate = tk.PhotoImage(file="anticipate.gif")
 win = tk.PhotoImage(file="win.gif")
 
 # Bind avatar to restart
+clock = tk.Label(status, text=" 00:00:00 ", font="courier 14 bold")
+clock.pack(side="left", expand=True)
 avatar = tk.Label(status, image=fine)
-avatar.pack()
+avatar.pack(side="left", expand=True)
 avatar.bind('<Button-1>', restart_game)
+counter = tk.Label(status, text="Mines: 000", font="courier 14 bold")
+counter.pack(side="left",expand=True)
+
 
 restart_game()
 root.mainloop()
