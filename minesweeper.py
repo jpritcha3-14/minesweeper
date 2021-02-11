@@ -7,10 +7,122 @@ from itertools import product
 from collections import deque
 from PIL import ImageTk, Image
 
+class GameState:
+    # Color and style config
+    clickedstyle="sunken"
+    clickedcolor="gray80"
+    unclickedstyle="raised"
+    unclickedcolor="gray65"
+    font="consolas 10 bold"
+    numcolor = {
+                1:"blue", 
+                2:"green", 
+                3:"red", 
+                4:"purple", 
+                5:"yellow", 
+                6:"turquoise3", 
+                7:"black", 
+                8:"lightskyblue4"
+               }
+
+    def __init__(self, sz=20, m=20):
+        self.first_click = True
+        self.tiles_left = sz**2 - m
+        self.start_time = time.time()
+        self.time_mine_font = "courier 14 bold"
+        self.size = sz
+        self.m = m
+
+        # Set up Frames
+        self.root = tk.Tk()
+        self.root.title("Minesweeper")
+        self.root.iconphoto(False, tk.PhotoImage(file="bomb.png"))
+        self.grid = tk.Frame(self.root)
+        self.grid.pack(side="bottom")
+        self.status = tk.Frame(self.root, bd=4)
+        self.status.pack(fill='x')
+        
+        # Load images
+        self.fine = tk.PhotoImage(file="fine.gif")
+        self.dead = tk.PhotoImage(file="dead.gif")
+        self.anticipate = tk.PhotoImage(file="anticipate.gif")
+        self.win = tk.PhotoImage(file="win.gif")
+
+        # Bind avatar to restart
+        self.clock = tk.Label(self.status, text=" 00:00:00 ", font="courier 14 bold")
+        self.clock.pack(side="left", expand=True)
+        self.avatar = tk.Label(self.status, image=self.fine)
+        self.avatar.pack(side="left", expand=True)
+        self.avatar.bind('<Button-1>', self.restart_game)
+        self.counter = tk.Label(self.status, text="Mines: 000", font="courier 14 bold")
+        self.counter.pack(side="left",expand=True)
+
+        self.tiles = [[] for _ in range(self.size)]
+        self.mines = set()
+
+        # Create the tile grid
+        for row in range(self.size):
+            for col in range(self.size):
+                cur_tile = Tile(self, row, col)
+                cur_tile.label.grid(row=row, column=col)
+                self.tiles[row].append(cur_tile)
+
+        self.restart_game()
+        self.root.mainloop()
+
+    def restart_game(self, event=None):
+        self.avatar.config(image=self.fine)
+        self.tiles_left = self.size**2 - self.m
+        self.first_click = True 
+        self.start_time = time.time() 
+        self.update_timer() # Need to move into this class
+        self.shuffle_mines() # Need to move into this class
+    
+        # Reset tile config and binding 
+        for row in range(self.size):
+            for col in range(self.size):
+                cur = self.tiles[row][col]
+                cur.text.set(" ")
+                cur.label.config(fg="red", relief=GameState.unclickedstyle, bg=GameState.unclickedcolor)
+                cur.neighbormines = -1
+                cur.flagged = False
+                cur.clicked = False
+                cur.label.bind("<ButtonRelease-1>", cur.left_click)
+                cur.label.bind("<Button-1>", cur.anticipate)
+                cur.label.bind("<ButtonRelease-2>", cur.right_click)
+                cur.label.bind("<ButtonRelease-3>", cur.right_click)
+
+    def unbind_tiles(self):
+        for row in range(self.size):
+            for col in range(self.size):
+                self.tiles[row][col].label.unbind("<ButtonRelease-1>")
+                self.tiles[row][col].label.unbind("<ButtonRelease-2>")
+                self.tiles[row][col].label.unbind("<ButtonRelease-3>")
+                self.tiles[row][col].label.unbind("<Button-1>")
+    
+    def update_timer(self):
+        cur_time = round(time.time() - self.start_time)
+        secs = cur_time % 60
+        mins = cur_time // 60
+        hrs = cur_time // 3600
+        fmtime = " {:02d}:{:02d}:{:02d} "
+        self.clock.config(text=fmtime.format(hrs, mins, secs))
+        self.root.after(1000, self.update_timer) 
+    
+    def shuffle_mines(self):
+        # A random 1D set of mines maps to the 2D tile grid.
+        # These are managed independently of individual tiles, 
+        # with thes self.ismine() function used for lookup.
+        self.mines.clear()
+        while len(self.mines) < self.m:
+            self.mines.add(random.randint(0,self.size**2-1))
+    
+
 class Tile:
-    def __init__(self, row, col):
+    def __init__(self, game, row, col):
         self.row = row
         self.col = col
+        self.game = game
         self.neighbormines = -1
         self.flagged = False
         self.clicked = False
@@ -18,7 +130,16 @@ class Tile:
         self.text = tk.StringVar()
         self.text.set(" ")
 
-        self.label = tk.Label(frame, fg="red", font=font, relief=unclickedstyle, bg=unclickedcolor, bd=1, textvariable=self.text, width=2, height=1)
+        self.label = tk.Label(  game.grid, 
+                                fg="red", 
+                                font=GameState.font, 
+                                relief=GameState.unclickedstyle, 
+                                bg=GameState.unclickedcolor, 
+                                bd=1, 
+                                textvariable=self.text, 
+                                width=2, 
+                                height=1
+                             )
         self.label.bind("<ButtonRelease-1>", self.left_click)
         self.label.bind("<Button-1>", self.anticipate)
         self.label.bind("<ButtonRelease-2>", self.right_click)
@@ -36,18 +157,17 @@ class Tile:
         return NotImplemented
     
     def ismine(self):
-        return (self.row * sz + self.col) in mines
+        return (self.row * self.game.size + self.col) in self.game.mines
 
-    @staticmethod
-    def inbounds(tile, i, j):
+    def inbounds(self, tile, i, j):
         return (    tile.row + i >= 0 
-                and tile.row + i < sz 
+                and tile.row + i < self.game.size 
                 and tile.col + j >= 0 
-                and tile.col + j < sz)
+                and tile.col + j < self.game.size)
     
     def checkneighbors(self):
-        global first_click
-        global tiles_left
+        #global first_click
+        #global tiles_left
         q = set([self])
         seen = set()
         while q:
@@ -57,7 +177,7 @@ class Tile:
             # Iterate through all 8 neighbors, counting mines, queueing empty tiles
             for i, j in product([-1, 0, 1], [-1, 0, 1]):
                 if self.inbounds(cur, i, j):
-                    t = tiles[cur.row + i][cur.col + j]
+                    t = self.game.tiles[cur.row + i][cur.col + j]
                     if t.ismine():
                         minecount += 1
                     else:
@@ -65,29 +185,32 @@ class Tile:
                             unclicked.add(t)
             # If there's at least one mine, don't add unclicked to q
             if minecount > 0:
-                if first_click:
-                    shuffle_mines()
+                if self.game.first_click:
+                    self.game.shuffle_mines()
                     q.add(cur)
                     continue
                 cur.neighbormines = minecount
                 cur.text.set(cur.neighbormines)
-                cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighbormines])
+                cur.label.config( relief=GameState.clickedstyle, 
+                                  bg=GameState.clickedcolor, 
+                                  fg=GameState.numcolor[cur.neighbormines] )
                 cur.clicked = True
-                tiles_left -= 1
-                print('Num:', tiles_left)
+                self.game.tiles_left -= 1
+                print('Num:', self.game.tiles_left)
             else:
                 if not cur.flagged:
                     q.update(unclicked)
                     seen.update(unclicked)
                     cur.text.set(" ")
                     cur.clicked = True
-                    cur.label.config(relief=clickedstyle, bg=clickedcolor)
-                    first_click = False
-                    tiles_left -= 1
-                    print('Blank:', tiles_left)
-            if tiles_left == 0:
-                avatar.config(image=win)
-                unbind_tiles()
+                    cur.label.config(relief=GameState.clickedstyle, bg=GameState.clickedcolor)
+                    self.game.first_click = False
+                    self.game.tiles_left -= 1
+                    print('Blank:', self.game.tiles_left)
+
+            if self.game.tiles_left == 0:
+                self.game.avatar.config(image=self.game.win)
+                self.game.unbind_tiles()
 
 
     def inside(self, x, y):
@@ -95,34 +218,34 @@ class Tile:
 
     def anticipate(self, event=None):
         if not self.flagged and not self.clicked:
-            self.label.config(relief=clickedstyle)
-            avatar.config(image=anticipate)
+            self.label.config(relief=GameState.clickedstyle)
+            self.game.avatar.config(image=self.game.anticipate)
 
     def left_click(self, event=None):
-        global first_click
-        global tiles_left
+        #global first_click
+        #global tiles_left
         if not self.flagged and not self.clicked:
-            avatar.config(image=fine)
-            self.label.config(relief=unclickedstyle)
+            self.game.avatar.config(image=self.game.fine)
+            self.label.config(relief=GameState.unclickedstyle)
             if self.inside(event.x, event.y):
-                if first_click and self.ismine():
+                if self.game.first_click and self.ismine():
                     while self.ismine():
-                        shuffle_mines()
+                        self.game.shuffle_mines()
                 self.clicked = True
-                self.label.config(relief=clickedstyle, bg=clickedcolor)
+                self.label.config(relief=GameState.clickedstyle, bg=GameState.clickedcolor)
                 if self.ismine():
-                    avatar.config(image=dead)
-                    unbind_tiles()
-                    for r, c in map(lambda b: (b // sz, b % sz), mines):
-                        tiles[r][c].label.configure(fg="black", bg="red")
-                        if not tiles[r][c].flagged:
-                            tiles[r][c].text.set("*")
+                    self.game.avatar.config(image=self.game.dead)
+                    self.game.unbind_tiles()
+                    for r, c in map(lambda b: (b // self.game.size, b % self.game.size), self.game.mines):
+                        self.game.tiles[r][c].label.configure(fg="black", bg="red")
+                        if not self.game.tiles[r][c].flagged:
+                            self.game.tiles[r][c].text.set("*")
                 else:
                     self.checkneighbors()
 
     def right_click(self, event=None):
-        global first_click
-        if not self.clicked and self.inside(event.x, event.y) and not first_click:
+        #global first_click
+        if not self.clicked and self.inside(event.x, event.y) and not self.game.first_click:
             if self.flagged:
                 if self.text.get() == "!":
                     self.text.set("?")
@@ -135,113 +258,5 @@ class Tile:
                 self.label.config(fg="red")
                 self.flagged = True
 
-
-def unbind_tiles():
-    for row in range(sz):
-        for col in range(sz):
-            tiles[row][col].label.unbind("<ButtonRelease-1>")
-            tiles[row][col].label.unbind("<ButtonRelease-2>")
-            tiles[row][col].label.unbind("<ButtonRelease-3>")
-            tiles[row][col].label.unbind("<Button-1>")
-
-
-
-def update_timer():
-    global start_time
-    cur_time = round(time.time() - start_time)
-    secs = cur_time % 60
-    mins = cur_time // 60
-    hrs = cur_time // 3600
-    fmtime = " {:02d}:{:02d}:{:02d} "
-    clock.config(text=fmtime.format(hrs, mins, secs))
-    root.after(1000, update_timer) 
-
-def shuffle_mines():
-    # A random 1D set of mines maps to the 2D tile grid.
-    # These are managed independently of individual tiles, 
-    # with thes self.ismine() function used for lookup.
-    mines.clear()
-    while len(mines) < b:
-        mines.add(random.randint(0,sz**2-1))
-
-def restart_game(event=None):
-    global first_click
-    global tiles_left
-    global start_time
-    # Reset Avatar
-    avatar.config(image=fine)
-
-    tiles_left = sz**2 - b
-    first_click = True 
-    start_time = time.time() 
-    update_timer()
-    shuffle_mines()
-
-    # Reset tile config and binding 
-    for row in range(sz):
-        for col in range(sz):
-            cur = tiles[row][col]
-            cur.text.set(" ")
-            cur.label.config(fg="red", relief=unclickedstyle, bg=unclickedcolor)
-            cur.neighbormines = -1
-            cur.flagged = False
-            cur.clicked = False
-            cur.label.bind("<ButtonRelease-1>", cur.left_click)
-            cur.label.bind("<Button-1>", cur.anticipate)
-            cur.label.bind("<ButtonRelease-2>", cur.right_click)
-            cur.label.bind("<ButtonRelease-3>", cur.right_click)
-
-    
-# Size and number of mines, to be replaced with parseargs
-sz = 20 
-b = 60 
-
-# Color and style config
-clickedstyle="sunken"
-clickedcolor="gray80"
-unclickedstyle="raised"
-unclickedcolor="gray65"
-font="consolas 10 bold"
-numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
-first_click = True
-tiles_left = sz**2 - b
-start_time = time.time()
-
-# Frame setup
-root = tk.Tk()
-root.title("Minesweeper")
-icon = tk.PhotoImage(file="bomb.png")
-root.iconphoto(False, icon)
-frame = tk.Frame(root)
-frame.pack(side="bottom")
-status = tk.Frame(root, bd = 4)
-status.pack(fill='x')
-
-tiles = [[] for _ in range(sz)]
-mines = set()
-
-# Create the tile grid
-for row in range(sz):
-    for col in range(sz):
-        cur_tile = Tile(row, col)
-        cur_tile.label.grid(row=row, column=col)
-        tiles[row].append(cur_tile)
-
-# Load images
-fine = tk.PhotoImage(file="fine.gif")
-dead = tk.PhotoImage(file="dead.gif")
-anticipate = tk.PhotoImage(file="anticipate.gif")
-win = tk.PhotoImage(file="win.gif")
-
-# Bind avatar to restart
-clock = tk.Label(status, text=" 00:00:00 ", font="courier 14 bold")
-clock.pack(side="left", expand=True)
-avatar = tk.Label(status, image=fine)
-avatar.pack(side="left", expand=True)
-avatar.bind('<Button-1>', restart_game)
-counter = tk.Label(status, text="Mines: 000", font="courier 14 bold")
-counter.pack(side="left",expand=True)
-
-
-restart_game()
-root.mainloop()
+#arg parse stuff here
+game = GameState()
