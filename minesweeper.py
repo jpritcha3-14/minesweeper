@@ -23,6 +23,17 @@ class Tile:
         self.label.bind("<ButtonRelease-2>", self.right_click)
         self.label.bind("<ButtonRelease-3>", self.right_click)
 
+    def __key__(self):
+        return (self.row, self.col)
+
+    def __hash__(self):
+        return hash(self.__key__())
+
+    def __eq__(self, other):
+        if isinstace(other, Tile):
+            return self.__key__() == other.__key__()
+        return NotImplemented
+    
     def ismine(self):
         return (self.row * sz + self.col) in mines
 
@@ -35,35 +46,48 @@ class Tile:
     
     def checkneighbors(self):
         global first_click
-        q = deque([self])
+        global tiles_left
+        q = set([self])
+        seen = set()
         while q:
             minecount = 0
-            unclicked = deque() 
+            unclicked = set() 
             cur = q.pop()
+            # Iterate through all 8 neighbors, counting mines, queueing empty tiles
             for i, j in product([-1, 0, 1], [-1, 0, 1]):
                 if self.inbounds(cur, i, j):
                     t = tiles[cur.row + i][cur.col + j]
                     if t.ismine():
                         minecount += 1
                     else:
-                        if not t.clicked and t.neighbormines == -1:
-                            unclicked.append(t)
+                        if not t.clicked and t.neighbormines == -1 and t not in seen:
+                            unclicked.add(t)
+            # If there's at least one mine, don't add unclicked to q
             if minecount > 0:
                 if first_click:
                     shuffle_mines()
-                    q.append(cur)
+                    q.add(cur)
                     continue
                 cur.neighbormines = minecount
                 cur.text.set(cur.neighbormines)
                 cur.label.config(relief=clickedstyle, bg=clickedcolor, fg=numcolor[cur.neighbormines])
                 cur.clicked = True
+                tiles_left -= 1
+                print('Num:', tiles_left)
             else:
                 if not cur.flagged:
-                    q.extend(unclicked)
+                    q.update(unclicked)
+                    seen.update(unclicked)
                     cur.text.set(" ")
                     cur.clicked = True
                     cur.label.config(relief=clickedstyle, bg=clickedcolor)
                     first_click = False
+                    tiles_left -= 1
+                    print('Blank:', tiles_left)
+            if tiles_left == 0:
+                avatar.config(image=win)
+                unbind_tiles()
+
 
     def inside(self, x, y):
         return x >= 0 and y >= 0 and x < self.label.winfo_width() and y < self.label.winfo_height()
@@ -75,6 +99,7 @@ class Tile:
 
     def left_click(self, event=None):
         global first_click
+        global tiles_left
         if not self.flagged and not self.clicked:
             avatar.config(image=fine)
             self.label.config(relief=unclickedstyle)
@@ -120,9 +145,11 @@ def shuffle_mines():
 
 def restart_game(event=None):
     global first_click
+    global tiles_left
     # Reset Avatar
     avatar.config(image=fine)
 
+    tiles_left = sz**2 - b
     first_click = True 
     shuffle_mines()
 
@@ -140,11 +167,10 @@ def restart_game(event=None):
             cur.label.bind("<ButtonRelease-2>", cur.right_click)
             cur.label.bind("<ButtonRelease-3>", cur.right_click)
 
-    root.mainloop()
     
 # Size and number of mines, to be replaced with parseargs
 sz = 20 
-b = 50
+b = 60 
 
 # Color and style config
 clickedstyle="sunken"
@@ -154,9 +180,11 @@ unclickedcolor="gray65"
 font="consolas 10 bold"
 numcolor = {1:"blue", 2:"green", 3:"red", 4:"purple", 5:"yellow", 6:"turquoise3", 7:"black", 8:"lightskyblue4"}
 first_click = True
+tiles_left = sz**2 - b
 
 # Frame setup
 root = tk.Tk()
+root.title("Minesweeper")
 frame = tk.Frame(root)
 frame.pack(side="bottom")
 status = tk.Frame(root)
@@ -176,7 +204,7 @@ for row in range(sz):
 fine = tk.PhotoImage(file="fine.gif")
 dead = tk.PhotoImage(file="dead.gif")
 anticipate = tk.PhotoImage(file="anticipate.gif")
-win = tk.PhotoImage(file="dead.gif")
+win = tk.PhotoImage(file="win.gif")
 
 # Bind avatar to restart
 avatar = tk.Label(status, image=fine)
@@ -184,3 +212,4 @@ avatar.pack()
 avatar.bind('<Button-1>', restart_game)
 
 restart_game()
+root.mainloop()
