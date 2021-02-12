@@ -39,7 +39,7 @@ class GameState:
         # Set up Frames
         self.root = tk.Tk()
         self.root.title("Minesweeper")
-        self.root.iconphoto(False, tk.PhotoImage(file="bomb.png"))
+        self.root.iconphoto(False, tk.PhotoImage(file="mine.png"))
         self.grid = tk.Frame(self.root)
         self.grid.pack(side="bottom")
         self.status = tk.Frame(self.root, bd=4)
@@ -52,11 +52,12 @@ class GameState:
         self.win = tk.PhotoImage(file="win.gif")
 
         # Bind avatar to restart
-        self.clock = tk.Label(self.status, text=" 00:00:00 ", font="courier 14 bold")
+        self.clock = tk.Label(self.status, text="  00:00:00", font="courier 14 bold")
         self.clock.pack(side="left", expand=True)
-        self.avatar = tk.Label(self.status, image=self.fine)
+        self.avatar = tk.Label(self.status, image=self.fine, relief=self.unclickedstyle)
         self.avatar.pack(side="left", expand=True)
-        self.avatar.bind('<Button-1>', self.restart_game)
+        self.avatar.bind('<ButtonRelease-1>', self.restart_game)
+        self.avatar.bind('<Button-1>', lambda event: self.avatar.config(relief=self.clickedstyle))
         self.counter = tk.Label(self.status, text="Mines: 000", font="courier 14 bold")
         self.counter.pack(side="left",expand=True)
 
@@ -74,7 +75,7 @@ class GameState:
         self.root.mainloop()
 
     def restart_game(self, event=None):
-        self.avatar.config(image=self.fine)
+        self.avatar.config(image=self.fine, relief=self.unclickedstyle)
         self.tiles_left = self.size**2 - self.m
         self.first_click = True 
         self.game_over = False
@@ -112,7 +113,7 @@ class GameState:
             secs = cur_time % 60
             mins = cur_time // 60
             hrs = cur_time // 3600
-            fmtime = " {:02d}:{:02d}:{:02d} "
+            fmtime = "  {:02d}:{:02d}:{:02d}"
             self.clock.config(text=fmtime.format(hrs, mins, secs))
             self.root.after(1000, self.update_timer) 
 
@@ -205,7 +206,6 @@ class Tile:
                                   fg=GameState.numcolor[cur.neighbormines] )
                 cur.clicked = True
                 self.game.tiles_left -= 1
-                print('Num:', self.game.tiles_left)
             else:
                 if not cur.flagged:
                     q.update(unclicked)
@@ -215,7 +215,6 @@ class Tile:
                     cur.label.config(relief=GameState.clickedstyle, bg=GameState.clickedcolor)
                     self.game.first_click = False
                     self.game.tiles_left -= 1
-                    print('Blank:', self.game.tiles_left)
 
             if self.game.tiles_left == 0:
                 self.game.avatar.config(image=self.game.win)
