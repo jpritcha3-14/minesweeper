@@ -26,13 +26,14 @@ class GameState:
                 8:"lightskyblue4"
                }
 
-    def __init__(self, sz=20, m=20):
+    def __init__(self, sz, m):
         self.first_click = True
         self.tiles_left = sz**2 - m
         self.start_time = time.time()
         self.time_mine_font = "courier 14 bold"
         self.size = sz
         self.m = m
+        self.mine_count = m
 
         # Set up Frames
         self.root = tk.Tk()
@@ -75,9 +76,11 @@ class GameState:
         self.avatar.config(image=self.fine)
         self.tiles_left = self.size**2 - self.m
         self.first_click = True 
+        self.mine_count = self.m
         self.start_time = time.time() 
-        self.update_timer() # Need to move into this class
-        self.shuffle_mines() # Need to move into this class
+        self.update_timer() 
+        self.update_mine_counter() 
+        self.shuffle_mines() 
     
         # Reset tile config and binding 
         for row in range(self.size):
@@ -109,7 +112,11 @@ class GameState:
         fmtime = " {:02d}:{:02d}:{:02d} "
         self.clock.config(text=fmtime.format(hrs, mins, secs))
         self.root.after(1000, self.update_timer) 
-    
+
+    def update_mine_counter(self, change=0):
+        self.mine_count += change
+        self.counter.config(text="Mines: {:03d}".format(self.mine_count))
+        
     def shuffle_mines(self):
         # A random 1D set of mines maps to the 2D tile grid.
         # These are managed independently of individual tiles, 
@@ -167,8 +174,6 @@ class Tile:
                 and tile.col + j < self.game.size)
     
     def checkneighbors(self):
-        #global first_click
-        #global tiles_left
         q = set([self])
         seen = set()
         while q:
@@ -223,8 +228,6 @@ class Tile:
             self.game.avatar.config(image=self.game.anticipate)
 
     def left_click(self, event=None):
-        #global first_click
-        #global tiles_left
         if not self.flagged and not self.clicked:
             self.game.avatar.config(image=self.game.fine)
             self.label.config(relief=GameState.unclickedstyle)
@@ -245,7 +248,6 @@ class Tile:
                     self.checkneighbors()
 
     def right_click(self, event=None):
-        #global first_click
         if not self.clicked and self.inside(event.x, event.y) and not self.game.first_click:
             if self.flagged:
                 if self.text.get() == "!":
@@ -254,7 +256,9 @@ class Tile:
                 else:
                     self.text.set(" ")
                     self.flagged = False
+                    self.game.update_mine_counter(1)
             else:
+                self.game.update_mine_counter(-1)
                 self.text.set("!")
                 self.label.config(fg="red")
                 self.flagged = True
