@@ -263,9 +263,9 @@ class Tile:
 class SizeAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if values < 10:
-            parser.error("Minimum grid size is 10")
+            parser.error("Minimum grid size is 10 x 10")
         if values > 30:
-            parser.error("Maximum grid size is 30")
+            parser.error("Maximum grid size is 30 x 30")
         setattr(namespace, self.dest, values)
     
 class MinesAction(argparse.Action):
@@ -274,13 +274,12 @@ class MinesAction(argparse.Action):
         if values < 10:
             parser.error("Minimun number of mines is 10")
         if values > math.floor((s**2)*0.3):
-            parser.error("Number of mines cannot exceed 30 percent of tiles in the grid (for size={}, maximum is {})".format(s, math.floor((s**2) * 0.3)))
+            parser.error("Number of mines cannot exceed %30 of total tiles in the grid (for size={}, maximum is {})".format(s, math.floor((s**2) * 0.3)))
         setattr(namespace, self.dest, values)
 
 parser = argparse.ArgumentParser(description='Play Minesweeper')
-parser.add_argument('-s', '--size', default=20, type=int, action=SizeAction, help='Size of one side of square grid.  10 <= S <= 30')
-parser.add_argument('-m', '--mines', default=60, type=int, action=MinesAction, help='Number of mines, cannot exceed 50 percent of tiles in grid')
+parser.add_argument('-s', '--size', default=20, type=int, action=SizeAction, help='Size of one side of the square grid. Min: 10, Max: 30')
+parser.add_argument('-m', '--mines', default=60, type=int, action=MinesAction, help='Number of mines. Min: 10, Max: %%30 of total tiles in grid')
 
 args = parser.parse_args()
-print(args.size, args.mines)
 game = GameState(args.size, args.mines)
