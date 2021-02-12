@@ -34,6 +34,7 @@ class GameState:
         self.size = sz
         self.m = m
         self.mine_count = m
+        self.game_over = False
 
         # Set up Frames
         self.root = tk.Tk()
@@ -76,6 +77,7 @@ class GameState:
         self.avatar.config(image=self.fine)
         self.tiles_left = self.size**2 - self.m
         self.first_click = True 
+        self.game_over = False
         self.mine_count = self.m
         self.start_time = time.time() 
         self.update_timer() 
@@ -105,13 +107,14 @@ class GameState:
                 self.tiles[row][col].label.unbind("<Button-1>")
     
     def update_timer(self):
-        cur_time = round(time.time() - self.start_time)
-        secs = cur_time % 60
-        mins = cur_time // 60
-        hrs = cur_time // 3600
-        fmtime = " {:02d}:{:02d}:{:02d} "
-        self.clock.config(text=fmtime.format(hrs, mins, secs))
-        self.root.after(1000, self.update_timer) 
+        if not self.game_over:
+            cur_time = round(time.time() - self.start_time)
+            secs = cur_time % 60
+            mins = cur_time // 60
+            hrs = cur_time // 3600
+            fmtime = " {:02d}:{:02d}:{:02d} "
+            self.clock.config(text=fmtime.format(hrs, mins, secs))
+            self.root.after(1000, self.update_timer) 
 
     def update_mine_counter(self, change=0):
         self.mine_count += change
@@ -217,6 +220,7 @@ class Tile:
             if self.game.tiles_left == 0:
                 self.game.avatar.config(image=self.game.win)
                 self.game.unbind_tiles()
+                self.game.game_over = True
 
 
     def inside(self, x, y):
@@ -240,6 +244,7 @@ class Tile:
                 if self.ismine():
                     self.game.avatar.config(image=self.game.dead)
                     self.game.unbind_tiles()
+                    self.game.game_over = True
                     for r, c in map(lambda b: (b // self.game.size, b % self.game.size), self.game.mines):
                         self.game.tiles[r][c].label.configure(fg="black", bg="red")
                         if not self.game.tiles[r][c].flagged:
