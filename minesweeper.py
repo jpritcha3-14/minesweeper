@@ -1,6 +1,7 @@
 import argparse
 import random
 import time
+import math
 
 import tkinter as tk
 from itertools import product
@@ -258,5 +259,28 @@ class Tile:
                 self.label.config(fg="red")
                 self.flagged = True
 
-#arg parse stuff here
-game = GameState()
+
+class SizeAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        if values < 10:
+            parser.error("Minimum grid size is 10")
+        if values > 30:
+            parser.error("Maximum grid size is 30")
+        setattr(namespace, self.dest, values)
+    
+class MinesAction(argparse.Action):
+    def __call__(self, parser, namespace, values, option_string=None):
+        s = getattr(namespace, 'size')
+        if values < 10:
+            parser.error("Minimun number of mines is 10")
+        if values > math.floor((s**2)*0.3):
+            parser.error("Number of mines cannot exceed 30 percent of tiles in the grid (for size={}, maximum is {})".format(s, math.floor((s**2) * 0.3)))
+        setattr(namespace, self.dest, values)
+
+parser = argparse.ArgumentParser(description='Play Minesweeper')
+parser.add_argument('-s', '--size', default=20, type=int, action=SizeAction, help='Size of one side of square grid.  10 <= S <= 30')
+parser.add_argument('-m', '--mines', default=60, type=int, action=MinesAction, help='Number of mines, cannot exceed 50 percent of tiles in grid')
+
+args = parser.parse_args()
+print(args.size, args.mines)
+game = GameState(args.size, args.mines)
