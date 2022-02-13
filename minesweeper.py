@@ -111,7 +111,7 @@ class GameState:
         if not self.game_over:
             cur_time = round(time.time() - self.start_time)
             secs = cur_time % 60
-            mins = cur_time // 60
+            mins = (cur_time % 3600) // 60
             hrs = cur_time // 3600
             fmtime = "  {:02d}:{:02d}:{:02d}"
             self.clock.config(text=fmtime.format(hrs, mins, secs))
@@ -191,7 +191,7 @@ class Tile:
                     if t.ismine():
                         minecount += 1
                     else:
-                        if not t.clicked and t.neighbormines == -1 and t not in seen:
+                        if not t.clicked and not t.flagged and t.neighbormines == -1 and t not in seen:
                             unclicked.add(t)
             # If there's at least one mine, don't add unclicked to q
             if minecount > 0:
